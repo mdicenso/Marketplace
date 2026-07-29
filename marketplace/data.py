@@ -53,6 +53,7 @@ class Experience(BaseModel):
     inc: list[str] = []
     route: list[str] = []
     route_str: str = ""
+    pubblicato: bool = True
 
 
 class Tag(BaseModel):

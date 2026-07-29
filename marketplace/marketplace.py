@@ -381,9 +381,97 @@ class State(rx.State):
             self.my_experiences = repo.load_experiences_by_operatore(
                 self.auth_struttura, self.auth_nome)
 
-    def crud_placeholder(self):
-        return rx.toast.info(
-            "CRUD esperienze in arrivo — prossimo mattone dell'area operatore")
+    # ---- CRUD esperienze (area operatore): la tabella `esperienze` è nostra ----
+    crud_open: bool = False
+    crud_editing_slug: str = ""      # "" = creazione ; altrimenti modifica
+    crud_error: str = ""
+    f_titolo: str = ""
+    f_categoria: str = "outdoor"
+    f_area: str = ""
+    f_comune: str = ""
+    f_prezzo: str = ""
+    f_durata: str = ""
+    f_gruppo: str = ""
+    f_descrizione: str = ""
+    f_inclusi: str = ""              # una voce per riga
+    f_percorso: str = ""            # una tappa per riga
+
+    def set_crud_open(self, v: bool):
+        self.crud_open = v
+
+    def close_crud(self):
+        self.crud_open = False
+
+    def set_f_titolo(self, v: str): self.f_titolo = v
+    def set_f_categoria(self, v: str): self.f_categoria = v
+    def set_f_area(self, v: str): self.f_area = v
+    def set_f_comune(self, v: str): self.f_comune = v
+    def set_f_prezzo(self, v: str): self.f_prezzo = v
+    def set_f_durata(self, v: str): self.f_durata = v
+    def set_f_gruppo(self, v: str): self.f_gruppo = v
+    def set_f_descrizione(self, v: str): self.f_descrizione = v
+    def set_f_inclusi(self, v: str): self.f_inclusi = v
+    def set_f_percorso(self, v: str): self.f_percorso = v
+
+    def open_new_esperienza(self):
+        self.crud_editing_slug = ""
+        self.f_titolo = self.f_area = self.f_comune = self.f_prezzo = ""
+        self.f_durata = self.f_gruppo = self.f_descrizione = ""
+        self.f_inclusi = self.f_percorso = ""
+        self.f_categoria = "outdoor"
+        self.crud_error = ""
+        self.crud_open = True
+
+    def open_edit_esperienza(self, slug: str):
+        e = next((x for x in self.my_experiences if x.id == slug), None)
+        if e is None:
+            return
+        self.crud_editing_slug = slug
+        self.f_titolo, self.f_categoria = e.title, e.cat
+        self.f_area, self.f_comune = e.area, e.town
+        self.f_prezzo = str(e.price)
+        self.f_durata, self.f_gruppo = e.dur, e.group
+        self.f_descrizione = e.lead
+        self.f_inclusi = "\n".join(e.inc)
+        self.f_percorso = "\n".join(e.route)
+        self.crud_error = ""
+        self.crud_open = True
+
+    def save_esperienza(self):
+        if not self.f_titolo.strip():
+            self.crud_error = "Il titolo è obbligatorio."
+            return
+        try:
+            prezzo = int(self.f_prezzo or 0)
+        except ValueError:
+            self.crud_error = "Prezzo non valido (usa un numero intero)."
+            return
+        inclusi = [x.strip() for x in self.f_inclusi.splitlines() if x.strip()]
+        percorso = [x.strip() for x in self.f_percorso.splitlines() if x.strip()]
+        campi = dict(
+            titolo=self.f_titolo.strip(), categoria=self.f_categoria,
+            area=self.f_area.strip(), comune=self.f_comune.strip(), prezzo=prezzo,
+            durata=self.f_durata.strip(), gruppo=self.f_gruppo.strip(),
+            descrizione=self.f_descrizione.strip(), inclusi=inclusi, percorso=percorso,
+        )
+        if self.crud_editing_slug:
+            repo.update_esperienza(self.crud_editing_slug, **campi)
+            msg = "Esperienza aggiornata"
+        else:
+            repo.create_esperienza(
+                **campi, operatore_nome=self.auth_nome, struttura_slug=self.auth_struttura)
+            msg = "Esperienza creata"
+        self.crud_open = False
+        self._load_personal_area()
+        self.experiences = repo.load_experiences()   # rinfresca anche il catalogo pubblico
+        return rx.toast.success(f"{msg} su Neon")
+
+    def toggle_pubblicato(self, slug: str):
+        e = next((x for x in self.my_experiences if x.id == slug), None)
+        nuovo = not (e.pubblicato if e else True)
+        repo.set_pubblicato(slug, nuovo)
+        self._load_personal_area()
+        self.experiences = repo.load_experiences()
 
 
 # ------------------------------------------------------------- UI: primitivi
@@ -1255,18 +1343,99 @@ def op_exp_row(e: Experience) -> rx.Component:
             rx.box(style={"background": e.grad, "width": "46px", "height": "46px",
                           "borderRadius": "10px", "flex": "0 0 auto"}),
             rx.vstack(
-                rx.heading(e.title, size="3"),
+                rx.hstack(
+                    rx.heading(e.title, size="3"),
+                    rx.cond(
+                        e.pubblicato,
+                        rx.badge("Pubblicata", color_scheme="green", variant="soft"),
+                        rx.badge("Nascosta", color_scheme="gray", variant="soft"),
+                    ),
+                    spacing="2", align="center", wrap="wrap",
+                ),
                 rx.text(e.area, " · €", e.price.to_string(), "/pers · ★ ",
                         e.rating.to_string(), size="1", color_scheme="gray"),
-                spacing="0", align="start",
+                spacing="1", align="start",
             ),
             rx.spacer(),
-            rx.button("Modifica", on_click=State.crud_placeholder, variant="soft",
-                      color_scheme="gray", size="2", cursor="pointer"),
+            rx.hstack(
+                rx.button(rx.cond(e.pubblicato, "Nascondi", "Pubblica"),
+                          on_click=State.toggle_pubblicato(e.id), variant="soft",
+                          color_scheme="gray", size="2", cursor="pointer"),
+                rx.button("Modifica", on_click=State.open_edit_esperienza(e.id),
+                          color_scheme="green", size="2", cursor="pointer"),
+                spacing="2",
+            ),
             width="100%", align="center", wrap="wrap",
         ),
         style={"background": SURFACE, "border": f"1px solid {BORDER}",
                "borderRadius": "13px", "padding": "14px 16px", "width": "100%"},
+    )
+
+
+def _fld(label: str, control: rx.Component) -> rx.Component:
+    return rx.vstack(rx.text(label, size="1", weight="bold"), control,
+                     spacing="1", align="start", width="100%")
+
+
+def crud_dialog() -> rx.Component:
+    return rx.dialog.root(
+        rx.dialog.content(
+            rx.dialog.title(
+                rx.cond(State.crud_editing_slug != "", "Modifica esperienza",
+                        "Nuova esperienza")),
+            rx.vstack(
+                _fld("Titolo", rx.input(value=State.f_titolo,
+                                        on_change=State.set_f_titolo, width="100%")),
+                rx.grid(
+                    _fld("Categoria", rx.select(
+                        list(CATS.keys()), value=State.f_categoria,
+                        on_change=State.set_f_categoria, width="100%")),
+                    _fld("Prezzo € (a persona)", rx.input(
+                        value=State.f_prezzo, on_change=State.set_f_prezzo,
+                        type="number", width="100%")),
+                    columns="2", spacing="3", width="100%",
+                ),
+                rx.grid(
+                    _fld("Area", rx.input(value=State.f_area,
+                                          on_change=State.set_f_area, width="100%")),
+                    _fld("Comune", rx.input(value=State.f_comune,
+                                            on_change=State.set_f_comune, width="100%")),
+                    _fld("Durata", rx.input(value=State.f_durata,
+                                            on_change=State.set_f_durata,
+                                            placeholder="es. 1 giorno · 6h", width="100%")),
+                    _fld("Gruppo", rx.input(value=State.f_gruppo,
+                                            on_change=State.set_f_gruppo,
+                                            placeholder="es. max 10", width="100%")),
+                    columns="2", spacing="3", width="100%",
+                ),
+                _fld("Descrizione", rx.text_area(
+                    value=State.f_descrizione, on_change=State.set_f_descrizione,
+                    rows="3", width="100%")),
+                _fld("Cosa è incluso (una voce per riga)", rx.text_area(
+                    value=State.f_inclusi, on_change=State.set_f_inclusi,
+                    rows="3", width="100%")),
+                _fld("Come arrivare (una tappa per riga)", rx.text_area(
+                    value=State.f_percorso, on_change=State.set_f_percorso,
+                    rows="2", width="100%")),
+                rx.cond(
+                    State.crud_error != "",
+                    rx.callout(State.crud_error, icon="triangle_alert",
+                               color_scheme="red", size="1", width="100%"),
+                ),
+                rx.hstack(
+                    rx.button("Annulla", on_click=State.close_crud, variant="soft",
+                              color_scheme="gray", cursor="pointer"),
+                    rx.spacer(),
+                    rx.button("Salva", on_click=State.save_esperienza,
+                              color_scheme="green", cursor="pointer"),
+                    width="100%",
+                ),
+                spacing="3", align="start", width="100%",
+            ),
+            style={"maxWidth": "640px"},
+        ),
+        open=State.crud_open,
+        on_open_change=State.set_crud_open,
     )
 
 
@@ -1275,25 +1444,33 @@ def area_operatore() -> rx.Component:
         rx.hstack(
             rx.vstack(
                 rx.heading("Le mie esperienze", size="5"),
-                rx.text("Gestisci le esperienze che vendi sul marketplace.",
+                rx.text("Crea, modifica e pubblica le esperienze che vendi. "
+                        "Le scritture vanno su Neon (tabella del Marketplace).",
                         color_scheme="gray", size="2"),
                 spacing="0", align="start",
             ),
             rx.spacer(),
-            rx.button("+ Nuova esperienza", on_click=State.crud_placeholder,
+            rx.button("+ Nuova esperienza", on_click=State.open_new_esperienza,
                       color_scheme="green", size="2", cursor="pointer"),
             width="100%", align="center", margin_bottom="1rem", wrap="wrap",
         ),
         rx.cond(
             State.my_experiences.length() > 0,
             rx.vstack(rx.foreach(State.my_experiences, op_exp_row), spacing="3", width="100%"),
-            empty_state("Nessuna esperienza collegata",
-                        "Il tuo account non ha ancora esperienze pubblicate.",
-                        "Vai al catalogo", "/"),
+            rx.center(
+                rx.vstack(
+                    rx.heading("Nessuna esperienza collegata", size="4"),
+                    rx.text("Crea la tua prima esperienza: comparirà nel catalogo pubblico.",
+                            color_scheme="gray", size="2", text_align="center"),
+                    rx.button("+ Nuova esperienza", on_click=State.open_new_esperienza,
+                              color_scheme="green", cursor="pointer"),
+                    spacing="3", align="center",
+                ),
+                style={"background": SURFACE, "border": f"1px dashed {BORDER}",
+                       "borderRadius": "14px", "padding": "40px 22px", "width": "100%"},
+            ),
         ),
-        rx.callout("CRUD esperienze in arrivo: creazione, modifica e pubblicazione "
-                   "arriveranno qui, sopra l'identità del CDP.",
-                   icon="info", color_scheme="amber", size="1", margin_top="1.2rem"),
+        crud_dialog(),
         style=_AREA_BODY,
     )
 

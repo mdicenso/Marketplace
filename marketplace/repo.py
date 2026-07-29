@@ -4,6 +4,8 @@ Tiene la UI Reflex del tutto ignara del DB: lo State chiama queste funzioni e ri
 stessi modelli `Experience`/`Booking` che già usava con i dati fittizi.
 """
 
+import re
+
 from sqlmodel import select
 
 from . import data
@@ -20,7 +22,7 @@ def _to_ui_exp(row: Esperienza) -> data.Experience:
         op=row.operatore_nome, partner=row.partner, struttura_slug=row.struttura_slug,
         price=row.prezzo, dur=row.durata, group=row.gruppo, rating=row.rating,
         rev=row.recensioni, lead=row.descrizione, inc=list(row.inclusi or []),
-        route=list(row.percorso or []),
+        route=list(row.percorso or []), pubblicato=row.pubblicato,
     )
 
 
@@ -130,3 +132,65 @@ def create_prenotazione(exp_slug: str, nome: str, email: str, pax: int,
         upsert_contatto_da_prenotazione(email=email, nome=nome)
 
         return _to_ui_booking(pren, exp, fresh=True), pren.codice_voucher
+
+
+# ------------------------------------------------- CRUD esperienze (area operatore)
+# La tabella `esperienze` è di PROPRIETÀ del Marketplace (scrittore unico, cfr. contratto
+# del ponte col CDP) → queste scritture sono interamente in casa, nessuna dipendenza dal CDP.
+def _slugify(text: str) -> str:
+    s = re.sub(r"[^a-z0-9]+", "-", (text or "").strip().lower()).strip("-")
+    return s or "esperienza"
+
+
+def _unique_slug(session, base: str) -> str:
+    esistenti = {r.slug for r in session.exec(select(Esperienza)).all()}
+    slug, i = base, 2
+    while slug in esistenti:
+        slug, i = f"{base}-{i}", i + 1
+    return slug
+
+
+def create_esperienza(*, titolo: str, categoria: str, area: str, comune: str, prezzo: int,
+                      durata: str, gruppo: str, descrizione: str, inclusi: list[str],
+                      percorso: list[str], operatore_nome: str,
+                      struttura_slug: str) -> data.Experience:
+    """Crea una nuova esperienza attribuita all'operatore loggato. Slug auto-generato dal titolo."""
+    with get_session() as s:
+        row = Esperienza(
+            slug=_unique_slug(s, _slugify(titolo)), categoria=categoria, titolo=titolo,
+            area=area, comune=comune, operatore_nome=operatore_nome,
+            struttura_slug=struttura_slug, partner=bool(struttura_slug), prezzo=prezzo,
+            durata=durata, gruppo=gruppo, rating=0.0, recensioni=0, descrizione=descrizione,
+            inclusi=inclusi, percorso=percorso, pubblicato=True,
+        )
+        s.add(row)
+        s.commit()
+        s.refresh(row)
+        return _to_ui_exp(row)
+
+
+def update_esperienza(slug: str, *, titolo: str, categoria: str, area: str, comune: str,
+                      prezzo: int, durata: str, gruppo: str, descrizione: str,
+                      inclusi: list[str], percorso: list[str]) -> "data.Experience | None":
+    """Aggiorna i campi editabili di un'esperienza (lo slug/id restano invariati)."""
+    with get_session() as s:
+        row = s.exec(select(Esperienza).where(Esperienza.slug == slug)).first()
+        if row is None:
+            return None
+        row.titolo, row.categoria, row.area, row.comune = titolo, categoria, area, comune
+        row.prezzo, row.durata, row.gruppo = prezzo, durata, gruppo
+        row.descrizione, row.inclusi, row.percorso = descrizione, inclusi, percorso
+        s.add(row)
+        s.commit()
+        s.refresh(row)
+        return _to_ui_exp(row)
+
+
+def set_pubblicato(slug: str, value: bool) -> None:
+    """Pubblica/nasconde un'esperienza dal catalogo pubblico."""
+    with get_session() as s:
+        row = s.exec(select(Esperienza).where(Esperienza.slug == slug)).first()
+        if row is not None:
+            row.pubblicato = value
+            s.add(row)
+            s.commit()
