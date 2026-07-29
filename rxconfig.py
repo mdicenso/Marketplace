@@ -33,10 +33,14 @@ _cfg = dict(
     ],
 )
 if _LOCAL:
+    # porte override-abili via env (default 3002/8004): utile quando un socket resta
+    # orfano dopo un kill del worker multiprocessing e la porta non si libera subito.
+    _fp = int(os.getenv("MP_FRONTEND_PORT", "3002"))
+    _bp = int(os.getenv("MP_BACKEND_PORT", "8004"))
     _cfg.update(
-        frontend_port=3002,
-        backend_port=8004,
-        api_url="http://localhost:8004",
+        frontend_port=_fp,
+        backend_port=_bp,
+        api_url=f"http://localhost:{_bp}",
         transport="polling",
     )
 
