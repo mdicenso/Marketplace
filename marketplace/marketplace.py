@@ -14,7 +14,7 @@ produzione da Reflex 0.9.7/RR7).
 import reflex as rx
 from pydantic import BaseModel
 
-from . import repo
+from . import auth, repo
 from .data import (
     ACCENT,
     BRAND,
@@ -25,6 +25,7 @@ from .data import (
     Booking,
     Experience,
     Insight,
+    Voucher,
 )
 
 
@@ -312,6 +313,78 @@ class State(rx.State):
     def exp_found(self) -> bool:
         return self.selected_exp.id != ""
 
+    # ---------------------------------------------------- AREA PERSONALE (auth)
+    # L'identità è del CDP; auth.py isola il contratto /api/v1/auth (oggi stub).
+    # NB: distinto dal role-switcher DEMO (self.role) della top-bar, che NON è un login.
+    li_email: str = ""
+    li_password: str = ""
+    auth_error: str = ""
+    auth_ruolo: str = ""          # "" = non loggato; "turista" | "operatore" | "admin"
+    auth_nome: str = ""
+    auth_email: str = ""
+    auth_struttura: str = ""
+    auth_token: str = ""
+    my_vouchers: list[Voucher] = []
+    my_experiences: list[Experience] = []
+
+    @rx.var
+    def is_auth(self) -> bool:
+        return self.auth_ruolo in ("turista", "operatore", "admin")
+
+    @rx.var
+    def auth_ruolo_label(self) -> str:
+        return {"turista": "Turista", "operatore": "Operatore",
+                "admin": "Admin"}.get(self.auth_ruolo, "")
+
+    def set_li_email(self, v: str):
+        self.li_email = v
+
+    def set_li_password(self, v: str):
+        self.li_password = v
+
+    def do_login(self):
+        user = auth.login(self.li_email, self.li_password)
+        if user is None:
+            self.auth_error = "Credenziali non valide."
+            return
+        self.auth_error = ""
+        self.auth_ruolo = user.ruolo
+        self.auth_nome = user.nome
+        self.auth_email = user.email
+        self.auth_struttura = user.struttura_slug
+        self.auth_token = user.token
+        self.li_password = ""
+        self._load_personal_area()
+        return rx.toast.success(f"Bentornato, {user.nome}")
+
+    def do_logout(self):
+        self.auth_ruolo = ""
+        self.auth_nome = ""
+        self.auth_email = ""
+        self.auth_struttura = ""
+        self.auth_token = ""
+        self.li_password = ""
+        self.my_vouchers = []
+        self.my_experiences = []
+
+    def load_area(self):
+        """on_load /area: assicura il catalogo (serve all'operatore) e i dati personali."""
+        if not self.experiences:
+            self.experiences = repo.load_experiences()
+        if self.is_auth:
+            self._load_personal_area()
+
+    def _load_personal_area(self):
+        if self.auth_ruolo == "turista":
+            self.my_vouchers = repo.load_vouchers_by_email(self.auth_email)
+        elif self.auth_ruolo == "operatore":
+            self.my_experiences = repo.load_experiences_by_operatore(
+                self.auth_struttura, self.auth_nome)
+
+    def crud_placeholder(self):
+        return rx.toast.info(
+            "CRUD esperienze in arrivo — prossimo mattone dell'area operatore")
+
 
 # ------------------------------------------------------------- UI: primitivi
 # token Radix theme-aware (validi in f-string, si adattano da soli a light/dark)
@@ -384,6 +457,11 @@ def top_bar() -> rx.Component:
                 role_button("Operatore", "operatore"),
                 role_button("Regione · TDH", "regione"),
                 spacing="1",
+            ),
+            rx.link(
+                rx.button("👤 Area personale", variant="soft", color_scheme="green",
+                          size="2", cursor="pointer"),
+                href="/area", underline="none",
             ),
             rx.color_mode.button(),
             align="center", width="100%",
@@ -923,6 +1001,11 @@ def page_header() -> rx.Component:
                 href="/", underline="none", color="inherit",
             ),
             rx.spacer(),
+            rx.link(
+                rx.button("👤 Area personale", variant="soft", color_scheme="green",
+                          size="2", cursor="pointer"),
+                href="/area", underline="none",
+            ),
             rx.color_mode.button(),
             align="center", width="100%",
         ),
@@ -1049,8 +1132,217 @@ def experience_page() -> rx.Component:
     )
 
 
+# ----------------------------------------------------- pagina AREA PERSONALE
+_AREA_BODY = {"maxWidth": "1000px", "margin": "0 auto", "padding": "10px 22px 60px"}
+
+
+def empty_state(title: str, sub: str, cta: str, href: str) -> rx.Component:
+    return rx.center(
+        rx.vstack(
+            rx.heading(title, size="4"),
+            rx.text(sub, color_scheme="gray", size="2", text_align="center"),
+            rx.link(rx.button(cta, color_scheme="green", cursor="pointer"), href=href),
+            spacing="3", align="center",
+        ),
+        style={"background": SURFACE, "border": f"1px dashed {BORDER}",
+               "borderRadius": "14px", "padding": "40px 22px", "width": "100%"},
+    )
+
+
+def login_card() -> rx.Component:
+    return rx.center(
+        rx.box(
+            eyebrow("Area personale", style={"color": ACCENT}),
+            rx.heading("Accedi al tuo spazio", size="6", margin="0.4rem 0 0.2rem"),
+            rx.text("Turisti, operatori e staff. L'identità è gestita dal CDP "
+                    "(autenticazione via /api/v1/auth).", color_scheme="gray", size="2"),
+            rx.vstack(
+                rx.text("Email", size="1", weight="bold"),
+                rx.input(value=State.li_email, on_change=State.set_li_email,
+                         placeholder="nome@email.it", type="email", width="100%"),
+                rx.text("Password", size="1", weight="bold", margin_top="0.4rem"),
+                rx.input(value=State.li_password, on_change=State.set_li_password,
+                         type="password", width="100%"),
+                rx.cond(
+                    State.auth_error != "",
+                    rx.callout(State.auth_error, icon="triangle_alert",
+                               color_scheme="red", size="1", width="100%"),
+                ),
+                rx.button("Entra →", on_click=State.do_login, size="3",
+                          color_scheme="green", width="100%", cursor="pointer",
+                          margin_top="0.6rem"),
+                spacing="2", align="start", width="100%", margin_top="1rem",
+            ),
+            rx.box(
+                rx.text("Utenti demo (stub, finché il CDP non espone /api/v1/auth):",
+                        size="1", weight="bold", color_scheme="gray"),
+                rx.text("turista → mario.rossi@email.it", size="1", color_scheme="gray"),
+                rx.text("operatore → sextantio@demo.it", size="1", color_scheme="gray"),
+                rx.text("admin → admin@demo.it", size="1", color_scheme="gray"),
+                rx.text("password per tutti: demo", size="1", color_scheme="gray",
+                        weight="bold"),
+                style={"background": rx.color_mode_cond(light="#ECEFE8", dark="#1D2620"),
+                       "borderRadius": "11px", "padding": "12px 14px", "marginTop": "1rem"},
+            ),
+            style={"background": SURFACE, "border": f"1px solid {BORDER}",
+                   "borderRadius": "16px", "padding": "26px", "maxWidth": "430px",
+                   "width": "100%"},
+        ),
+        min_height="72vh", padding="30px 22px",
+    )
+
+
+def area_topbar() -> rx.Component:
+    return rx.box(
+        rx.hstack(
+            rx.vstack(
+                eyebrow("Area personale · " + State.auth_ruolo_label,
+                        style={"color": ACCENT}),
+                rx.heading("Ciao, " + State.auth_nome, size="6"),
+                spacing="0", align="start",
+            ),
+            rx.spacer(),
+            rx.button("Esci", on_click=State.do_logout, variant="soft",
+                      color_scheme="gray", size="2", cursor="pointer"),
+            width="100%", align="center",
+        ),
+        style={"maxWidth": "1000px", "margin": "0 auto", "padding": "26px 22px 8px"},
+    )
+
+
+def voucher_card(v: Voucher) -> rx.Component:
+    return rx.box(
+        rx.hstack(
+            rx.vstack(
+                rx.heading(v.exp_title, size="3"),
+                rx.text("📍 ", v.exp_town, " · ", v.date, " · ", v.pax.to_string(), " pax",
+                        size="1", color_scheme="gray"),
+                spacing="1", align="start",
+            ),
+            rx.spacer(),
+            rx.vstack(
+                rx.text(v.codice, weight="bold",
+                        style={"fontFamily": "monospace", "letterSpacing": "0.04em"}),
+                rx.badge(v.stato, color_scheme="green", variant="soft"),
+                spacing="1", align="end",
+            ),
+            width="100%", align="center", wrap="wrap",
+        ),
+        style={"background": SURFACE, "border": f"1px solid {BORDER}",
+               "borderRadius": "13px", "padding": "16px 18px", "width": "100%"},
+    )
+
+
+def area_turista() -> rx.Component:
+    return rx.box(
+        rx.heading("I miei voucher", size="5", margin_bottom="0.2rem"),
+        rx.text("Le esperienze che hai prenotato sul marketplace.",
+                color_scheme="gray", size="2", margin_bottom="1rem"),
+        rx.cond(
+            State.my_vouchers.length() > 0,
+            rx.vstack(rx.foreach(State.my_vouchers, voucher_card), spacing="3", width="100%"),
+            empty_state("Nessun voucher ancora",
+                        "Quando prenoti un'esperienza, il voucher compare qui.",
+                        "Esplora il catalogo", "/"),
+        ),
+        style=_AREA_BODY,
+    )
+
+
+def op_exp_row(e: Experience) -> rx.Component:
+    return rx.box(
+        rx.hstack(
+            rx.box(style={"background": e.grad, "width": "46px", "height": "46px",
+                          "borderRadius": "10px", "flex": "0 0 auto"}),
+            rx.vstack(
+                rx.heading(e.title, size="3"),
+                rx.text(e.area, " · €", e.price.to_string(), "/pers · ★ ",
+                        e.rating.to_string(), size="1", color_scheme="gray"),
+                spacing="0", align="start",
+            ),
+            rx.spacer(),
+            rx.button("Modifica", on_click=State.crud_placeholder, variant="soft",
+                      color_scheme="gray", size="2", cursor="pointer"),
+            width="100%", align="center", wrap="wrap",
+        ),
+        style={"background": SURFACE, "border": f"1px solid {BORDER}",
+               "borderRadius": "13px", "padding": "14px 16px", "width": "100%"},
+    )
+
+
+def area_operatore() -> rx.Component:
+    return rx.box(
+        rx.hstack(
+            rx.vstack(
+                rx.heading("Le mie esperienze", size="5"),
+                rx.text("Gestisci le esperienze che vendi sul marketplace.",
+                        color_scheme="gray", size="2"),
+                spacing="0", align="start",
+            ),
+            rx.spacer(),
+            rx.button("+ Nuova esperienza", on_click=State.crud_placeholder,
+                      color_scheme="green", size="2", cursor="pointer"),
+            width="100%", align="center", margin_bottom="1rem", wrap="wrap",
+        ),
+        rx.cond(
+            State.my_experiences.length() > 0,
+            rx.vstack(rx.foreach(State.my_experiences, op_exp_row), spacing="3", width="100%"),
+            empty_state("Nessuna esperienza collegata",
+                        "Il tuo account non ha ancora esperienze pubblicate.",
+                        "Vai al catalogo", "/"),
+        ),
+        rx.callout("CRUD esperienze in arrivo: creazione, modifica e pubblicazione "
+                   "arriveranno qui, sopra l'identità del CDP.",
+                   icon="info", color_scheme="amber", size="1", margin_top="1.2rem"),
+        style=_AREA_BODY,
+    )
+
+
+def area_admin() -> rx.Component:
+    return rx.box(
+        rx.heading("Console piattaforma", size="5", margin_bottom="0.2rem"),
+        rx.text("Vista d'insieme del marketplace.", color_scheme="gray", size="2",
+                margin_bottom="1rem"),
+        rx.hstack(
+            kpi_card("Esperienze", State.experiences.length().to_string(),
+                     "pubblicate", "#256E7E"),
+            kpi_card("Prenotazioni", State.reg_count.to_string(), "totali", "#2F7D4F"),
+            kpi_card("GMV", "€" + State.reg_gmv.to_string(), "intercettato", ACCENT),
+            wrap="wrap", spacing="3", width="100%",
+        ),
+        rx.callout("Gestione utenti, moderazione operatori e payout: in arrivo, contro "
+                   "gli `utenti` e `/api/v1/auth` del CDP.",
+                   icon="info", color_scheme="amber", size="1", margin_top="1.2rem"),
+        style=_AREA_BODY,
+    )
+
+
+def area_authed() -> rx.Component:
+    return rx.box(
+        area_topbar(),
+        rx.match(
+            State.auth_ruolo,
+            ("operatore", area_operatore()),
+            ("admin", area_admin()),
+            area_turista(),
+        ),
+    )
+
+
+def area_page() -> rx.Component:
+    return rx.box(
+        page_header(),
+        rx.cond(State.is_auth, area_authed(), login_card()),
+        style={"minHeight": "100vh",
+               "background": rx.color_mode_cond(light="#F4F6F1", dark="#0E1310")},
+    )
+
+
 app = rx.App()  # tema configurato in rxconfig.py (RadixThemesPlugin)
 app.add_page(index, title="Abruzzo Experience Market", on_load=State.on_load)
 app.add_page(experience_page, route="/esperienza",
              title="Esperienza · Abruzzo Experience Market",
              on_load=State.load_experience_page)
+app.add_page(area_page, route="/area",
+             title="Area personale · Abruzzo Experience Market",
+             on_load=State.load_area)

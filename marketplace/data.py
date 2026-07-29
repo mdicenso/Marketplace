@@ -86,6 +86,18 @@ class Booking(BaseModel):
     fresh: bool = False
 
 
+class Voucher(BaseModel):
+    """Prenotazione vista dal turista nella sua area personale (i miei voucher)."""
+
+    codice: str
+    exp_title: str
+    exp_town: str
+    date: str
+    pax: int
+    importo: int
+    stato: str
+
+
 def _exp(**kw) -> Experience:
     label, color = CATS[kw["cat"]]
     kw["cat_label"] = label

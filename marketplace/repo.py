@@ -54,6 +54,48 @@ def load_bookings() -> list[data.Booking]:
         return [_to_ui_booking(p, exps.get(p.esperienza_id)) for p in prens]
 
 
+# ------------------------------------------------------ letture area personale
+def load_vouchers_by_email(email: str) -> list[data.Voucher]:
+    """I voucher del turista loggato = sue prenotazioni (match per email, case-insensitive)."""
+    email = (email or "").strip().lower()
+    if not email:
+        return []
+    with get_session() as s:
+        prens = s.exec(select(Prenotazione).order_by(Prenotazione.id.desc())).all()
+        exps = {e.id: e for e in s.exec(select(Esperienza)).all()}
+        out: list[data.Voucher] = []
+        for p in prens:
+            if (p.cliente_email or "").strip().lower() != email:
+                continue
+            e = exps.get(p.esperienza_id)
+            out.append(data.Voucher(
+                codice=p.codice_voucher,
+                exp_title=e.titolo if e else p.esperienza_slug,
+                exp_town=e.comune if e else "",
+                date=p.data_esperienza, pax=p.pax,
+                importo=p.importo_lordo, stato=p.stato,
+            ))
+        return out
+
+
+def load_experiences_by_operatore(struttura_slug: str, operatore_nome: str) -> list[data.Experience]:
+    """Le esperienze dell'operatore loggato: match per soft-link `struttura_slug` (venue
+    CDP) oppure per `operatore_nome` (operatore non-venue: guide/bike, struttura_slug="")."""
+    struttura_slug = (struttura_slug or "").strip()
+    operatore_nome = (operatore_nome or "").strip()
+    with get_session() as s:
+        rows = s.exec(select(Esperienza).order_by(Esperienza.id)).all()
+
+    def _mine(r: Esperienza) -> bool:
+        if struttura_slug and r.struttura_slug == struttura_slug:
+            return True
+        if operatore_nome and r.operatore_nome == operatore_nome:
+            return True
+        return False
+
+    return [_to_ui_exp(r) for r in rows if _mine(r)]
+
+
 # --------------------------------------------------------------------- scritture
 def create_prenotazione(exp_slug: str, nome: str, email: str, pax: int,
                         con_navetta: bool, data_esp: str) -> "tuple[data.Booking, str]":
