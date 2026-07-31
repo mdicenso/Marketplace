@@ -572,12 +572,23 @@ def top_bar() -> rx.Component:
                 align="center", spacing="2",
             ),
             rx.spacer(),
-            rx.link(
-                rx.button(
-                    rx.cond(State.is_auth, "👤 " + State.auth_nome, "Accedi"),
-                    variant="soft", color_scheme="brown", size="2", cursor="pointer",
+            rx.cond(
+                State.is_auth,
+                rx.hstack(
+                    rx.link(
+                        rx.button("👤 " + State.auth_nome, variant="soft",
+                                  color_scheme="brown", size="2", cursor="pointer"),
+                        href="/area", underline="none",
+                    ),
+                    rx.button("Esci", on_click=State.do_logout, variant="ghost",
+                              color_scheme="gray", size="2", cursor="pointer"),
+                    spacing="2", align="center",
                 ),
-                href="/area", underline="none",
+                rx.link(
+                    rx.button("Accedi", variant="soft", color_scheme="brown",
+                              size="2", cursor="pointer"),
+                    href="/area", underline="none",
+                ),
             ),
             rx.color_mode.button(),
             align="center", width="100%",
