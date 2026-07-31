@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 # ---- Categorie: (etichetta, colore) ------------------------------------
 CATS: dict[str, tuple[str, str]] = {
-    "outdoor": ("Natura & trekking", "#2E6349"),
+    "outdoor": ("Natura & trekking", "#3d4a2e"),
     "wellness": ("Terme & benessere", "#256E7E"),
     "food": ("Enogastronomia", "#B7791A"),
     "culture": ("Cultura & borghi", "#7B4B8A"),
@@ -18,8 +18,8 @@ CATS: dict[str, tuple[str, str]] = {
 }
 
 # colori dashboard / palette brand
-BRAND = "#234E3A"
-ACCENT = "#DE8E23"
+BRAND = "#3d4a2e"
+ACCENT = "#b5705a"
 COMMISSION = 0.11
 OP_ID = "Wolf Trails Abruzzo"  # operatore che sta guardando la sua dashboard
 

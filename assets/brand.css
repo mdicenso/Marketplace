@@ -1,0 +1,10 @@
+/* Bottega Wild & Authentic — font del brand Core (Fraunces display + Outfit UI).
+   Agganciato via rx.App(stylesheets=["/brand.css"]). I font arrivano da Google Fonts
+   (raggiungibile dalla rete come il portale). Le variabili sono quelle native di Radix. */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,400&family=Cormorant+Garamond:ital,wght@1,600&family=Sacramento&family=Outfit:wght@300;400;500;600&display=swap');
+
+.radix-themes {
+  --default-font-family: 'Outfit', system-ui, sans-serif;
+  --heading-font-family: 'Fraunces', Georgia, serif;
+  --em-font-family: 'Fraunces', Georgia, serif;
+}

@@ -79,7 +79,7 @@ class State(rx.State):
 
     @rx.var
     def cat_chips(self) -> list[Cat]:
-        chips = [Cat(key="all", label="Tutte", color="#7A857C", count=len(self.experiences))]
+        chips = [Cat(key="all", label="Tutte", color="#8a7f72", count=len(self.experiences))]
         for key, (label, color) in CATS.items():
             n = len([e for e in self.experiences if e.cat == key])
             chips.append(Cat(key=key, label=label, color=color, count=n))
@@ -221,7 +221,7 @@ class State(rx.State):
                 k = "Montagna"
             buckets[k] += g
         mx = max(1, *buckets.values())
-        colors = {"Costa": "#256E7E", "Borghi": "#DE8E23", "Montagna": "#2E6349"}
+        colors = {"Costa": "#256E7E", "Borghi": "#b5705a", "Montagna": "#3d4a2e"}
         return [
             Split(area=k, amount=v, pct=round(v / mx * 100), color=colors[k])
             for k, v in buckets.items()
@@ -500,7 +500,7 @@ def kpi_card(label: str, value: rx.Component, delta: str, color: str, pulse=Fals
             justify="between", align="center", width="100%",
         ),
         rx.heading(value, size="7", margin_top="0.5rem"),
-        rx.text(delta, size="1", color_scheme="green", margin_top="0.2rem"),
+        rx.text(delta, size="1", color_scheme="brown", margin_top="0.2rem"),
         style={
             "background": SURFACE, "border": f"1px solid {BORDER}",
             "borderRadius": "14px", "padding": "18px 19px",
@@ -526,15 +526,22 @@ def top_bar() -> rx.Component:
     return rx.box(
         rx.hstack(
             rx.hstack(
-                rx.box("▲", style={
-                    "background": f"linear-gradient(135deg,{BRAND},#2E6349)",
-                    "color": ACCENT, "width": "30px", "height": "30px",
-                    "borderRadius": "9px", "display": "grid", "placeItems": "center",
-                    "fontSize": "13px", "fontWeight": "800",
-                }),
+                rx.html(
+                    '<svg viewBox="0 0 64 64" fill="currentColor" style="width:32px;height:32px;color:#cc8e7a">'
+                    '<path d="M32 37c-9 0-15 6-15 12 0 5 5 8 15 8s15-3 15-8c0-6-6-12-15-12z"/>'
+                    '<ellipse cx="15" cy="29" rx="5" ry="7"/><ellipse cx="26" cy="21" rx="5" ry="7.5"/>'
+                    '<ellipse cx="38" cy="21" rx="5" ry="7.5"/><ellipse cx="49" cy="29" rx="5" ry="7"/></svg>'
+                ),
                 rx.vstack(
-                    rx.text("Abruzzo Experience Market", weight="bold", size="3"),
-                    rx.text("Marketplace esperienze · POC", size="1", color_scheme="gray"),
+                    rx.text("Bottega", style={"fontFamily": "'Cormorant Garamond',serif",
+                            "fontStyle": "italic", "fontWeight": "600", "fontSize": "1.3rem", "lineHeight": "1"}),
+                    rx.hstack(
+                        rx.text("Wild", style={"fontFamily": "'Sacramento',cursive",
+                                "fontSize": "1.1rem", "color": "#b5705a", "lineHeight": "0.7"}),
+                        rx.text("& Authentic", style={"fontSize": "0.55rem", "letterSpacing": "0.14em",
+                                "textTransform": "uppercase", "opacity": "0.75"}),
+                        spacing="1", align="baseline",
+                    ),
                     spacing="0", align="start",
                 ),
                 align="center", spacing="2",
@@ -543,11 +550,11 @@ def top_bar() -> rx.Component:
             rx.hstack(
                 role_button("Turista", "turista"),
                 role_button("Operatore", "operatore"),
-                role_button("Regione · TDH", "regione"),
+                role_button("Gestione", "regione"),
                 spacing="1",
             ),
             rx.link(
-                rx.button("👤 Area personale", variant="soft", color_scheme="green",
+                rx.button("👤 Area personale", variant="soft", color_scheme="brown",
                           size="2", cursor="pointer"),
                 href="/area", underline="none",
             ),
@@ -567,32 +574,45 @@ def top_bar() -> rx.Component:
 
 # ----------------------------------------------------------- vista TURISTA
 def hero() -> rx.Component:
-    tag = lambda t: rx.box(
-        t, style={
-            "background": "rgba(255,255,255,.14)", "border": "1px solid rgba(255,255,255,.24)",
-            "color": "white", "padding": "7px 13px", "borderRadius": "999px",
-            "fontSize": "13px", "fontWeight": "600",
-        })
-    return rx.box(
-        eyebrow("Esperienze locali · non un altro sito di hotel",
-                style={"color": "rgba(255,255,255,.82)"}),
-        rx.heading("L'Abruzzo autentico, prenotabile in due tap.",
-                   size="8", color="white", margin_top="0.6rem",
-                   style={"maxWidth": "16ch"}),
-        rx.text("Tour, natura, enogastronomia e borghi — venduti dagli operatori del "
-                "territorio, già collegati ai trasporti pubblici. Il margine resta in regione.",
-                color="rgba(255,255,255,.9)", margin_top="0.8rem", style={"maxWidth": "52ch"}),
+    def ph(src, extra):
+        return rx.box(
+            rx.image(src=src, style={"width": "100%", "height": "100%",
+                                     "objectFit": "cover", "display": "block"}),
+            style={**extra, "position": "absolute", "borderRadius": "16px",
+                   "overflow": "hidden", "boxShadow": "0 10px 30px rgba(61,74,46,.16)"},
+        )
+    collage = rx.box(
+        ph("/mp-outdoor.jpg", {"width": "60%", "height": "78%", "left": "0", "top": "11%", "zIndex": "2"}),
+        ph("/mp-food.jpg",    {"width": "44%", "height": "52%", "right": "0", "top": "0", "zIndex": "3"}),
+        ph("/mp-village.jpg", {"width": "46%", "height": "46%", "right": "6%", "bottom": "0", "zIndex": "1"}),
+        style={"position": "relative", "height": "340px"},
+        display=rx.breakpoints(initial="none", md="block"),
+    )
+    left = rx.box(
+        eyebrow("Abruzzo Experience Market", style={"color": ACCENT}),
+        rx.heading("Esperienze autentiche d'Abruzzo, prenotabili in due tap",
+                   size="8", style={"fontWeight": "300", "lineHeight": "1.06",
+                                    "marginBottom": "0.8rem", "maxWidth": "18ch"}),
+        rx.text("Trekking, terme, borghi e cucina scelti con gli operatori del territorio. "
+                "Prezzo chiaro, conferma immediata, voucher subito.",
+                color_scheme="gray", size="4", style={"maxWidth": "46ch", "marginBottom": "1.2rem"}),
         rx.hstack(
-            tag("Commissione operatori 11% (vs 15–25%)"),
-            tag("Trasporto incluso TUA4Fly"),
-            tag("Operatori verificati dalla Regione"),
-            wrap="wrap", spacing="2", margin_top="1.2rem",
+            rx.input(placeholder="Cerca: trekking, terme, arrosticini, Scanno…",
+                     variant="soft", size="3",
+                     style={"flex": "1", "background": "transparent", "boxShadow": "none"}),
+            rx.button("Cerca", size="3", color_scheme="brown", radius="full", cursor="pointer"),
+            align="center", spacing="2",
+            style={"background": "white", "border": f"1px solid {BORDER}", "borderRadius": "999px",
+                   "padding": "5px 5px 5px 14px", "maxWidth": "520px",
+                   "boxShadow": "0 8px 28px rgba(61,74,46,.10)"},
         ),
-        style={
-            "background": f"radial-gradient(80% 120% at 82% -10%, {ACCENT}44, transparent 55%),"
-                          f"linear-gradient(120deg,#1A3B2C,#2E6349)",
-            "padding": "52px 22px 40px", "borderBottom": f"1px solid {BORDER}",
-        },
+        rx.text("Commissione operatori 11% · trasporto incluso TUA4Fly · operatori verificati",
+                color_scheme="gray", size="1", margin_top="0.9rem"),
+    )
+    return rx.box(
+        rx.grid(left, collage, columns=rx.breakpoints(initial="1", md="2"),
+                spacing="6", align="center", style={"maxWidth": "1180px", "margin": "0 auto"}),
+        style={"padding": "40px 22px 26px", "borderBottom": f"1px solid {BORDER}"},
     )
 
 
@@ -615,22 +635,35 @@ def exp_card(e: Experience) -> rx.Component:
         rx.box(
         # "immagine" = gradiente categoria con badge
         rx.box(
+            rx.image(
+                src=rx.match(
+                    e.cat,
+                    ("outdoor", "/mp-outdoor.jpg"), ("wellness", "/mp-wellness.jpg"),
+                    ("food", "/mp-food.jpg"), ("culture", "/mp-culture.jpg"),
+                    ("family", "/mp-family.jpg"), "/mp-outdoor.jpg",
+                ),
+                style={"position": "absolute", "inset": "0", "width": "100%",
+                       "height": "100%", "objectFit": "cover"},
+            ),
+            rx.box(style={"position": "absolute", "inset": "0",
+                          "background": "linear-gradient(to top, rgba(0,0,0,.30), transparent 55%)"}),
             rx.hstack(
                 rx.cond(
                     State.boosted.contains(e.id),
-                    rx.badge("⚡ Spinta dalla Regione", color_scheme="green", variant="solid"),
+                    rx.badge("⚡ Spinta dalla Regione", color_scheme="brown", variant="solid"),
                 ),
                 rx.cond(
                     e.partner,
                     rx.badge("★ Partner CDP", color_scheme="amber", variant="solid"),
                 ),
-                spacing="1", wrap="wrap",
+                spacing="1", wrap="wrap", style={"position": "relative", "zIndex": "2"},
             ),
             rx.spacer(),
-            rx.badge(e.cat_label, style={"background": "rgba(0,0,0,.32)", "color": "white"}),
+            rx.badge(e.cat_label, style={"background": "rgba(0,0,0,.42)", "color": "white",
+                     "position": "relative", "zIndex": "2", "alignSelf": "flex-start"}),
             style={
-                "background": e.grad, "height": "150px", "borderRadius": "12px 12px 0 0",
-                "padding": "12px", "display": "flex", "flexDirection": "column",
+                "position": "relative", "height": "160px", "borderRadius": "12px 12px 0 0",
+                "padding": "12px", "display": "flex", "flexDirection": "column", "overflow": "hidden",
             },
         ),
         rx.vstack(
@@ -640,7 +673,7 @@ def exp_card(e: Experience) -> rx.Component:
             rx.text("di ", rx.text.strong(e.op), size="2", color_scheme="gray"),
             rx.box(
                 rx.text("✈ ", e.route_str, "  · intermodale", size="1", weight="medium"),
-                style={"background": rx.color_mode_cond(light="#E1EEF0", dark="#173036"),
+                style={"background": rx.color_mode_cond(light="#f1e7dc", dark="#2a231a"),
                        "color": "#256E7E", "padding": "9px 10px", "borderRadius": "9px"},
                 width="100%",
             ),
@@ -704,7 +737,7 @@ def detail_content() -> rx.Component:
     e = State.selected_exp
     fact = lambda k, v: rx.box(
         eyebrow(k), rx.text(v, weight="bold", margin_top="0.2rem"),
-        style={"background": rx.color_mode_cond(light="#ECEFE8", dark="#1D2620"),
+        style={"background": rx.color_mode_cond(light="#efe7db", dark="#241f18"),
                "borderRadius": "11px", "padding": "12px 13px"}, flex="1", min_width="120px",
     )
     return rx.vstack(
@@ -726,7 +759,7 @@ def detail_content() -> rx.Component:
         rx.heading("Cosa è incluso", size="3", margin_top="0.4rem"),
         rx.vstack(
             rx.foreach(e.inc, lambda i: rx.hstack(
-                rx.text("✓", color_scheme="green", weight="bold"),
+                rx.text("✓", color_scheme="brown", weight="bold"),
                 rx.text(i, size="2", color_scheme="gray"), spacing="2", align="start")),
             spacing="1", align="start", width="100%",
         ),
@@ -737,7 +770,7 @@ def detail_content() -> rx.Component:
                 rx.foreach(e.route, lambda s: rx.badge(s, color_scheme="cyan", variant="soft")),
                 wrap="wrap", spacing="2", margin_top="0.6rem",
             ),
-            style={"background": rx.color_mode_cond(light="#E1EEF0", dark="#173036"),
+            style={"background": rx.color_mode_cond(light="#f1e7dc", dark="#2a231a"),
                    "borderRadius": "12px", "padding": "15px 16px", "width": "100%"},
         ),
         rx.hstack(
@@ -802,10 +835,10 @@ def checkout_content() -> rx.Component:
             rx.divider(),
             summ_row("Totale", "€" + State.ck_tot.to_string(), strong=True),
             rx.text("All'operatore (netto 89%): €", State.ck_net.to_string(),
-                    size="1", color_scheme="green", weight="bold"),
+                    size="1", color_scheme="brown", weight="bold"),
             rx.text("Commissione piattaforma 11% — reinvestita in Abruzzo: €",
                     State.ck_fee.to_string(), size="1", color_scheme="gray"),
-            style={"background": rx.color_mode_cond(light="#ECEFE8", dark="#1D2620"),
+            style={"background": rx.color_mode_cond(light="#efe7db", dark="#241f18"),
                    "borderRadius": "13px", "padding": "16px 17px", "width": "100%"},
         ),
         rx.callout("POC dimostrativa: il pagamento è simulato, nessun addebito reale.",
@@ -819,8 +852,8 @@ def checkout_content() -> rx.Component:
 def confirm_content() -> rx.Component:
     e = State.selected_exp
     return rx.vstack(
-        rx.box("✓", style={"background": rx.color_mode_cond(light="#E4F0E6", dark="#16281C"),
-                           "color": "#2F7D4F", "width": "72px", "height": "72px",
+        rx.box("✓", style={"background": rx.color_mode_cond(light="#f2eadd", dark="#231c12"),
+                           "color": "#5a6b3f", "width": "72px", "height": "72px",
                            "borderRadius": "50%", "display": "grid", "placeItems": "center",
                            "fontSize": "36px"}),
         rx.heading("Prenotazione confermata", size="6"),
@@ -832,7 +865,7 @@ def confirm_content() -> rx.Component:
                     style={"fontFamily": "monospace", "letterSpacing": "0.04em"}),
             rx.text("Mostra il QR all'operatore · navetta TUA4Fly inclusa",
                     size="1", color_scheme="gray"),
-            style={"background": rx.color_mode_cond(light="#ECEFE8", dark="#1D2620"),
+            style={"background": rx.color_mode_cond(light="#efe7db", dark="#241f18"),
                    "border": f"1.5px dashed {BORDER}", "borderRadius": "15px",
                    "padding": "18px 20px", "width": "100%", "textAlign": "center"},
         ),
@@ -840,7 +873,7 @@ def confirm_content() -> rx.Component:
             rx.button("Continua a esplorare", on_click=State.close_dialog,
                       variant="soft", color_scheme="gray", cursor="pointer"),
             rx.button("Vedi lato operatore", on_click=[State.close_dialog,
-                      State.set_role("operatore")], color_scheme="green", cursor="pointer"),
+                      State.set_role("operatore")], color_scheme="brown", cursor="pointer"),
             spacing="2",
         ),
         rx.text("La prenotazione è comparsa in tempo reale nella dashboard Operatore "
@@ -887,7 +920,7 @@ def operatore_view() -> rx.Component:
                 color_scheme="gray", size="3", style={"maxWidth": "60ch"}),
         rx.hstack(
             kpi_card("Prenotazioni", State.op_count.to_string(), "confermate", "#256E7E"),
-            kpi_card("Incasso netto", "€" + State.op_net.to_string(), "89% trattenuto", "#2F7D4F"),
+            kpi_card("Incasso netto", "€" + State.op_net.to_string(), "89% trattenuto", "#5a6b3f"),
             kpi_card("Commissione", "€" + State.op_fee.to_string(), "solo 11%", "#B7791A"),
             kpi_card("Partecipanti", State.op_pax.to_string(), "questo mese", "#7B4B8A"),
             wrap="wrap", spacing="3", margin="1.4rem 0", width="100%",
@@ -932,11 +965,11 @@ def op_table_row(r: OpRow) -> rx.Component:
         rx.table.cell(money(r.gross)),
         rx.table.cell(rx.text("−€", r.fee.to_string(), color_scheme="gray", size="1")),
         rx.table.cell(rx.hstack(
-            rx.text("€", r.net.to_string(), color_scheme="green", weight="bold"),
+            rx.text("€", r.net.to_string(), color_scheme="brown", weight="bold"),
             rx.cond(r.fresh, rx.badge("nuova", color_scheme="amber")),
             spacing="2", align="center")),
         style=rx.cond(r.fresh, {"background": rx.color_mode_cond(
-            light="#E4F0E6", dark="#16281C")}, {}),
+            light="#f2eadd", dark="#231c12")}, {}),
     )
 
 
@@ -948,7 +981,7 @@ def insight_card(i: Insight) -> rx.Component:
             rx.box(rx.cond(i.sig == "hot", "🔥", "❄"),
                    style={"width": "38px", "height": "38px", "borderRadius": "11px",
                           "display": "grid", "placeItems": "center",
-                          "background": rx.cond(i.sig == "hot", ACCENT, "#E1EEF0"),
+                          "background": rx.cond(i.sig == "hot", ACCENT, "#f1e7dc"),
                           "fontSize": "18px"}),
             rx.vstack(
                 rx.heading(i.title, size="3"),
@@ -967,7 +1000,7 @@ def insight_card(i: Insight) -> rx.Component:
             rx.text("→ ", i.action, size="1", color_scheme="gray", style={"flex": "1"}),
             rx.cond(
                 done,
-                rx.text("✓ Attiva sul marketplace", color_scheme="green",
+                rx.text("✓ Attiva sul marketplace", color_scheme="brown",
                         weight="bold", size="2"),
                 rx.button("⚡ " + i.cta, on_click=State.do_boost(i.target),
                           color_scheme="amber", size="2", cursor="pointer"),
@@ -992,7 +1025,7 @@ def split_bar(s: Split) -> rx.Component:
             rx.box(style={"height": "100%", "width": s.pct.to_string() + "%",
                           "background": s.color, "borderRadius": "5px"}),
             style={"height": "9px", "borderRadius": "5px", "marginTop": "6px",
-                   "background": rx.color_mode_cond(light="#ECEFE8", dark="#1D2620"),
+                   "background": rx.color_mode_cond(light="#efe7db", dark="#241f18"),
                    "overflow": "hidden"},
         ),
         width="100%", margin_bottom="0.9rem",
@@ -1024,7 +1057,7 @@ def regione_view() -> rx.Component:
             kpi_card("GMV settimana", "€" + State.reg_gmv.to_string(),
                      "flussi intercettati", ACCENT),
             kpi_card("Margine in regione", "€" + State.reg_fee.to_string(),
-                     "reinvestito", "#2F7D4F"),
+                     "reinvestito", "#5a6b3f"),
             kpi_card("Prenotazioni", State.reg_count.to_string(),
                      "via marketplace", "#256E7E"),
             kpi_card("Esperienze spinte", State.boosted_count.to_string(),
@@ -1043,7 +1076,7 @@ def regione_view() -> rx.Component:
                     rx.text("🔁 Il loop chiuso: dati pubblici (PDND/ISTAT) → previsione TDH "
                             "→ spinta sul marketplace → mobilità TUA4Fly → prenotazione → "
                             "margine che resta in Abruzzo.", size="2", color="white"),
-                    style={"background": "#1A3B2C", "borderRadius": "14px",
+                    style={"background": "#2c2318", "borderRadius": "14px",
                            "padding": "15px 19px", "width": "100%"},
                 ),
                 spacing="3", width="100%",
@@ -1067,7 +1100,7 @@ def index() -> rx.Component:
         ),
         exp_dialog(),
         style={"minHeight": "100vh",
-               "background": rx.color_mode_cond(light="#F4F6F1", dark="#0E1310")},
+               "background": rx.color_mode_cond(light="#f7f1e8", dark="#16130f")},
     )
 
 
@@ -1079,7 +1112,7 @@ def page_header() -> rx.Component:
             rx.link(
                 rx.hstack(
                     rx.box("▲", style={
-                        "background": f"linear-gradient(135deg,{BRAND},#2E6349)",
+                        "background": f"linear-gradient(135deg,{BRAND},#3d4a2e)",
                         "color": ACCENT, "width": "30px", "height": "30px",
                         "borderRadius": "9px", "display": "grid", "placeItems": "center",
                         "fontSize": "13px", "fontWeight": "800"}),
@@ -1090,7 +1123,7 @@ def page_header() -> rx.Component:
             ),
             rx.spacer(),
             rx.link(
-                rx.button("👤 Area personale", variant="soft", color_scheme="green",
+                rx.button("👤 Area personale", variant="soft", color_scheme="brown",
                           size="2", cursor="pointer"),
                 href="/area", underline="none",
             ),
@@ -1110,7 +1143,7 @@ def experience_page_body() -> rx.Component:
     e = State.selected_exp
     fact = lambda k, v: rx.box(
         eyebrow(k), rx.text(v, weight="bold", margin_top="0.2rem"),
-        style={"background": rx.color_mode_cond(light="#ECEFE8", dark="#1D2620"),
+        style={"background": rx.color_mode_cond(light="#efe7db", dark="#241f18"),
                "borderRadius": "11px", "padding": "12px 13px"}, flex="1", min_width="120px",
     )
     return rx.box(
@@ -1118,7 +1151,7 @@ def experience_page_body() -> rx.Component:
         rx.box(
             rx.hstack(
                 rx.cond(State.boosted.contains(e.id),
-                        rx.badge("⚡ Spinta dalla Regione", color_scheme="green", variant="solid")),
+                        rx.badge("⚡ Spinta dalla Regione", color_scheme="brown", variant="solid")),
                 rx.cond(e.partner,
                         rx.badge("★ Partner CDP", color_scheme="amber", variant="solid")),
                 spacing="1", wrap="wrap",
@@ -1142,7 +1175,7 @@ def experience_page_body() -> rx.Component:
                 rx.heading("Cosa è incluso", size="4", margin_top="0.4rem"),
                 rx.vstack(
                     rx.foreach(e.inc, lambda i: rx.hstack(
-                        rx.text("✓", color_scheme="green", weight="bold"),
+                        rx.text("✓", color_scheme="brown", weight="bold"),
                         rx.text(i, size="3", color_scheme="gray"), spacing="2", align="start")),
                     spacing="1", align="start", width="100%",
                 ),
@@ -1152,7 +1185,7 @@ def experience_page_body() -> rx.Component:
                     rx.hstack(
                         rx.foreach(e.route, lambda s: rx.badge(s, color_scheme="cyan", variant="soft")),
                         wrap="wrap", spacing="2", margin_top="0.6rem"),
-                    style={"background": rx.color_mode_cond(light="#E1EEF0", dark="#173036"),
+                    style={"background": rx.color_mode_cond(light="#f1e7dc", dark="#2a231a"),
                            "borderRadius": "12px", "padding": "15px 16px", "width": "100%"},
                 ),
                 spacing="4", align="start", width="100%",
@@ -1190,7 +1223,7 @@ def not_found_body() -> rx.Component:
             rx.heading("Esperienza non trovata", size="6"),
             rx.text("Lo slug richiesto non corrisponde a nessuna esperienza pubblicata.",
                     color_scheme="gray"),
-            rx.link(rx.button("← Vai al catalogo", color_scheme="green"), href="/"),
+            rx.link(rx.button("← Vai al catalogo", color_scheme="brown"), href="/"),
             spacing="3", align="center",
         ),
         min_height="60vh",
@@ -1216,7 +1249,7 @@ def experience_page() -> rx.Component:
         ),
         exp_dialog(),
         style={"minHeight": "100vh",
-               "background": rx.color_mode_cond(light="#F4F6F1", dark="#0E1310")},
+               "background": rx.color_mode_cond(light="#f7f1e8", dark="#16130f")},
     )
 
 
@@ -1229,7 +1262,7 @@ def empty_state(title: str, sub: str, cta: str, href: str) -> rx.Component:
         rx.vstack(
             rx.heading(title, size="4"),
             rx.text(sub, color_scheme="gray", size="2", text_align="center"),
-            rx.link(rx.button(cta, color_scheme="green", cursor="pointer"), href=href),
+            rx.link(rx.button(cta, color_scheme="brown", cursor="pointer"), href=href),
             spacing="3", align="center",
         ),
         style={"background": SURFACE, "border": f"1px dashed {BORDER}",
@@ -1257,7 +1290,7 @@ def login_card() -> rx.Component:
                                color_scheme="red", size="1", width="100%"),
                 ),
                 rx.button("Entra →", on_click=State.do_login, size="3",
-                          color_scheme="green", width="100%", cursor="pointer",
+                          color_scheme="brown", width="100%", cursor="pointer",
                           margin_top="0.6rem"),
                 spacing="2", align="start", width="100%", margin_top="1rem",
             ),
@@ -1269,7 +1302,7 @@ def login_card() -> rx.Component:
                 rx.text("admin → admin@demo.it", size="1", color_scheme="gray"),
                 rx.text("password per tutti: demo", size="1", color_scheme="gray",
                         weight="bold"),
-                style={"background": rx.color_mode_cond(light="#ECEFE8", dark="#1D2620"),
+                style={"background": rx.color_mode_cond(light="#efe7db", dark="#241f18"),
                        "borderRadius": "11px", "padding": "12px 14px", "marginTop": "1rem"},
             ),
             style={"background": SURFACE, "border": f"1px solid {BORDER}",
@@ -1311,7 +1344,7 @@ def voucher_card(v: Voucher) -> rx.Component:
             rx.vstack(
                 rx.text(v.codice, weight="bold",
                         style={"fontFamily": "monospace", "letterSpacing": "0.04em"}),
-                rx.badge(v.stato, color_scheme="green", variant="soft"),
+                rx.badge(v.stato, color_scheme="brown", variant="soft"),
                 spacing="1", align="end",
             ),
             width="100%", align="center", wrap="wrap",
@@ -1347,7 +1380,7 @@ def op_exp_row(e: Experience) -> rx.Component:
                     rx.heading(e.title, size="3"),
                     rx.cond(
                         e.pubblicato,
-                        rx.badge("Pubblicata", color_scheme="green", variant="soft"),
+                        rx.badge("Pubblicata", color_scheme="brown", variant="soft"),
                         rx.badge("Nascosta", color_scheme="gray", variant="soft"),
                     ),
                     spacing="2", align="center", wrap="wrap",
@@ -1362,7 +1395,7 @@ def op_exp_row(e: Experience) -> rx.Component:
                           on_click=State.toggle_pubblicato(e.id), variant="soft",
                           color_scheme="gray", size="2", cursor="pointer"),
                 rx.button("Modifica", on_click=State.open_edit_esperienza(e.id),
-                          color_scheme="green", size="2", cursor="pointer"),
+                          color_scheme="brown", size="2", cursor="pointer"),
                 spacing="2",
             ),
             width="100%", align="center", wrap="wrap",
@@ -1427,7 +1460,7 @@ def crud_dialog() -> rx.Component:
                               color_scheme="gray", cursor="pointer"),
                     rx.spacer(),
                     rx.button("Salva", on_click=State.save_esperienza,
-                              color_scheme="green", cursor="pointer"),
+                              color_scheme="brown", cursor="pointer"),
                     width="100%",
                 ),
                 spacing="3", align="start", width="100%",
@@ -1451,7 +1484,7 @@ def area_operatore() -> rx.Component:
             ),
             rx.spacer(),
             rx.button("+ Nuova esperienza", on_click=State.open_new_esperienza,
-                      color_scheme="green", size="2", cursor="pointer"),
+                      color_scheme="brown", size="2", cursor="pointer"),
             width="100%", align="center", margin_bottom="1rem", wrap="wrap",
         ),
         rx.cond(
@@ -1463,7 +1496,7 @@ def area_operatore() -> rx.Component:
                     rx.text("Crea la tua prima esperienza: comparirà nel catalogo pubblico.",
                             color_scheme="gray", size="2", text_align="center"),
                     rx.button("+ Nuova esperienza", on_click=State.open_new_esperienza,
-                              color_scheme="green", cursor="pointer"),
+                              color_scheme="brown", cursor="pointer"),
                     spacing="3", align="center",
                 ),
                 style={"background": SURFACE, "border": f"1px dashed {BORDER}",
@@ -1483,7 +1516,7 @@ def area_admin() -> rx.Component:
         rx.hstack(
             kpi_card("Esperienze", State.experiences.length().to_string(),
                      "pubblicate", "#256E7E"),
-            kpi_card("Prenotazioni", State.reg_count.to_string(), "totali", "#2F7D4F"),
+            kpi_card("Prenotazioni", State.reg_count.to_string(), "totali", "#5a6b3f"),
             kpi_card("GMV", "€" + State.reg_gmv.to_string(), "intercettato", ACCENT),
             wrap="wrap", spacing="3", width="100%",
         ),
@@ -1511,11 +1544,11 @@ def area_page() -> rx.Component:
         page_header(),
         rx.cond(State.is_auth, area_authed(), login_card()),
         style={"minHeight": "100vh",
-               "background": rx.color_mode_cond(light="#F4F6F1", dark="#0E1310")},
+               "background": rx.color_mode_cond(light="#f7f1e8", dark="#16130f")},
     )
 
 
-app = rx.App()  # tema configurato in rxconfig.py (RadixThemesPlugin)
+app = rx.App(stylesheets=["/brand.css"])  # tema in rxconfig.py; font brand in assets/brand.css
 app.add_page(index, title="Abruzzo Experience Market", on_load=State.on_load)
 app.add_page(experience_page, route="/esperienza",
              title="Esperienza · Abruzzo Experience Market",

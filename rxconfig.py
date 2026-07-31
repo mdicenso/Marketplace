@@ -24,8 +24,8 @@ _cfg = dict(
         rx.plugins.TailwindV4Plugin(),
         rx.plugins.RadixThemesPlugin(  # tema qui (App(theme=) deprecato in 0.9, rimosso in 1.0)
             theme=rx.theme(
-                accent_color="green",
-                gray_color="sage",
+                accent_color="brown",   # Bottega/Core: caldo (vicino al terracotta del brand)
+                gray_color="sand",       # neutri caldi
                 radius="large",
                 panel_background="solid",
             ),
