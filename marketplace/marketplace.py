@@ -61,6 +61,13 @@ _BLANK = Experience(
     price=0, dur="", group="", rating=0.0, rev=0, lead="",
 )
 
+# Credenziali stub per gli ingressi demo "Accedi come…" del login (specchio di auth._STUB).
+DEMO_CREDS = {
+    "turista": "mario.rossi@email.it",
+    "operatore": "sextantio@demo.it",
+    "admin": "admin@demo.it",
+}
+
 
 # ---------------------------------------------------------------------- State
 class State(rx.State):
@@ -357,6 +364,14 @@ class State(rx.State):
         self._load_personal_area()
         return rx.toast.success(f"Bentornato, {user.nome}")
 
+    # Ingresso demo esplicito "Accedi come…": pre-riempie le credenziali dell'utente
+    # stub del ruolo scelto e passa dal login vero (do_login → auth.login → CDP/stub).
+    # Convenienza da POC; il login email/password resta la porta principale.
+    def demo_login(self, ruolo: str):
+        self.li_email = DEMO_CREDS.get(ruolo, "")
+        self.li_password = "demo"
+        return self.do_login()
+
     def do_logout(self):
         self.auth_ruolo = ""
         self.auth_nome = ""
@@ -511,14 +526,24 @@ def kpi_card(label: str, value: rx.Component, delta: str, color: str, pulse=Fals
 
 
 # ----------------------------------------------------------------- top bar
-def role_button(label: str, value: str) -> rx.Component:
-    active = State.role == value
+def login_role_button(icon: str, title: str, sub: str, ruolo: str) -> rx.Component:
+    """Ingresso esplicito 'Accedi come…' del login: un click entra nel ruolo scelto."""
     return rx.button(
-        label,
-        on_click=State.set_role(value),
-        variant=rx.cond(active, "solid", "soft"),
-        color_scheme=rx.cond(active, "green", "gray"),
-        size="2", cursor="pointer",
+        rx.hstack(
+            rx.text(icon, style={"fontSize": "1.5rem"}),
+            rx.vstack(
+                rx.text(title, weight="bold", size="3"),
+                rx.text(sub, size="1", color_scheme="gray"),
+                spacing="0", align="start",
+            ),
+            rx.spacer(),
+            rx.text("→", style={"fontSize": "1.2rem", "opacity": "0.55"}),
+            align="center", width="100%", spacing="3",
+        ),
+        on_click=State.demo_login(ruolo),
+        variant="surface", color_scheme="brown", size="4",
+        width="100%", cursor="pointer",
+        style={"height": "auto", "padding": "13px 16px", "textAlign": "left"},
     )
 
 
@@ -547,15 +572,11 @@ def top_bar() -> rx.Component:
                 align="center", spacing="2",
             ),
             rx.spacer(),
-            rx.hstack(
-                role_button("Turista", "turista"),
-                role_button("Operatore", "operatore"),
-                role_button("Gestione", "regione"),
-                spacing="1",
-            ),
             rx.link(
-                rx.button("👤 Area personale", variant="soft", color_scheme="brown",
-                          size="2", cursor="pointer"),
+                rx.button(
+                    rx.cond(State.is_auth, "👤 " + State.auth_nome, "Accedi"),
+                    variant="soft", color_scheme="brown", size="2", cursor="pointer",
+                ),
                 href="/area", underline="none",
             ),
             rx.color_mode.button(),
@@ -618,15 +639,30 @@ def hero() -> rx.Component:
 
 def cat_chip(c: Cat) -> rx.Component:
     active = State.active_filter == c.key
-    return rx.button(
-        rx.box(width="8px", height="8px", border_radius="50%",
-               style={"background": c.color}),
-        c.label,
-        rx.text(c.count.to_string(), style={"opacity": "0.7"}),
+    photo = rx.match(
+        c.key,
+        ("outdoor", "/mp-outdoor.jpg"), ("wellness", "/mp-wellness.jpg"),
+        ("food", "/mp-food.jpg"), ("culture", "/mp-culture.jpg"),
+        ("family", "/mp-family.jpg"), "/mp-village.jpg",   # default 'all' → borgo
+    )
+    return rx.box(
+        rx.image(src=photo, style={"width": "100%", "height": "100%", "objectFit": "cover"}),
+        rx.box(style={"position": "absolute", "inset": "0",
+                      "background": "linear-gradient(to top, rgba(30,28,24,.76), rgba(30,28,24,.06) 62%)"}),
+        rx.vstack(
+            rx.text(c.label, weight="medium", style={"color": "white", "fontSize": "0.95rem", "lineHeight": "1.1"}),
+            rx.text(c.count.to_string(), " esperienze",
+                    style={"color": "rgba(255,255,255,.82)", "fontSize": "0.72rem"}),
+            spacing="0", align="start",
+            style={"position": "absolute", "left": "12px", "bottom": "9px", "zIndex": "2"},
+        ),
         on_click=State.set_filter(c.key),
-        variant=rx.cond(active, "solid", "outline"),
-        color_scheme=rx.cond(active, "green", "gray"),
-        size="2", cursor="pointer", radius="full",
+        style={
+            "position": "relative", "height": "108px", "borderRadius": "14px", "overflow": "hidden",
+            "cursor": "pointer", "boxShadow": "0 8px 28px rgba(61,74,46,.10)",
+            "outline": rx.cond(active, "3px solid #b5705a", "1px solid rgba(0,0,0,0)"),
+            "outlineOffset": "1px",
+        },
     )
 
 
@@ -712,9 +748,10 @@ def turista_view() -> rx.Component:
     return rx.box(
         hero(),
         rx.box(
-            rx.hstack(rx.foreach(State.cat_chips, cat_chip),
-                      wrap="wrap", spacing="2"),
-            style={"padding": "16px 22px", "borderBottom": f"1px solid {BORDER}"},
+            rx.grid(rx.foreach(State.cat_chips, cat_chip),
+                    columns=rx.breakpoints(initial="2", sm="3", lg="6"),
+                    spacing="3", width="100%"),
+            style={"maxWidth": "1180px", "margin": "0 auto", "padding": "18px 22px 6px"},
         ),
         rx.box(
             rx.vstack(
@@ -872,8 +909,8 @@ def confirm_content() -> rx.Component:
         rx.hstack(
             rx.button("Continua a esplorare", on_click=State.close_dialog,
                       variant="soft", color_scheme="gray", cursor="pointer"),
-            rx.button("Vedi lato operatore", on_click=[State.close_dialog,
-                      State.set_role("operatore")], color_scheme="brown", cursor="pointer"),
+            rx.button("Vai all'area operatore", on_click=[State.close_dialog,
+                      rx.redirect("/area")], color_scheme="brown", cursor="pointer"),
             spacing="2",
         ),
         rx.text("La prenotazione è comparsa in tempo reale nella dashboard Operatore "
@@ -1092,12 +1129,9 @@ def regione_view() -> rx.Component:
 def index() -> rx.Component:
     return rx.box(
         top_bar(),
-        rx.match(
-            State.role,
-            ("operatore", operatore_view()),
-            ("regione", regione_view()),
-            turista_view(),
-        ),
+        # La home pubblica della Bottega è SEMPRE la vetrina turista: si esplora
+        # senza login. Operatore e Gestione vivono dietro l'accesso (/area).
+        turista_view(),
         exp_dialog(),
         style={"minHeight": "100vh",
                "background": rx.color_mode_cond(light="#f7f1e8", dark="#16130f")},
@@ -1274,37 +1308,46 @@ def login_card() -> rx.Component:
     return rx.center(
         rx.box(
             eyebrow("Area personale", style={"color": ACCENT}),
-            rx.heading("Accedi al tuo spazio", size="6", margin="0.4rem 0 0.2rem"),
-            rx.text("Turisti, operatori e staff. L'identità è gestita dal CDP "
-                    "(autenticazione via /api/v1/auth).", color_scheme="gray", size="2"),
+            rx.heading("Come vuoi entrare?", size="6", margin="0.4rem 0 0.2rem"),
+            rx.text("Scegli il tuo accesso. Il turista esplora la Bottega anche "
+                    "senza account; l'area riservata richiede l'accesso.",
+                    color_scheme="gray", size="2"),
+            # --- 3 ingressi espliciti "Accedi come…" → 3 aree diverse ---
             rx.vstack(
-                rx.text("Email", size="1", weight="bold"),
+                login_role_button("🧭", "Accedi come Turista",
+                                  "Vetrina, prenotazioni e i tuoi voucher", "turista"),
+                login_role_button("🏛️", "Accedi come Operatore",
+                                  "Le tue esperienze, disponibilità e incassi", "operatore"),
+                login_role_button("⚙️", "Accedi come Gestione",
+                                  "Staff regionale: catalogo e supervisione", "admin"),
+                spacing="2", width="100%", margin_top="1.1rem",
+            ),
+            rx.cond(
+                State.auth_error != "",
+                rx.callout(State.auth_error, icon="triangle_alert",
+                           color_scheme="red", size="1", width="100%",
+                           margin_top="0.8rem"),
+            ),
+            # --- oppure login reale email/password (CDP /api/v1/auth) ---
+            rx.hstack(
+                rx.divider(),
+                rx.text("oppure con email", size="1", color_scheme="gray",
+                        style={"whiteSpace": "nowrap"}),
+                rx.divider(),
+                align="center", spacing="3", margin="1.3rem 0 0.2rem",
+            ),
+            rx.vstack(
                 rx.input(value=State.li_email, on_change=State.set_li_email,
                          placeholder="nome@email.it", type="email", width="100%"),
-                rx.text("Password", size="1", weight="bold", margin_top="0.4rem"),
                 rx.input(value=State.li_password, on_change=State.set_li_password,
-                         type="password", width="100%"),
-                rx.cond(
-                    State.auth_error != "",
-                    rx.callout(State.auth_error, icon="triangle_alert",
-                               color_scheme="red", size="1", width="100%"),
-                ),
+                         placeholder="password", type="password", width="100%"),
                 rx.button("Entra →", on_click=State.do_login, size="3",
-                          color_scheme="brown", width="100%", cursor="pointer",
-                          margin_top="0.6rem"),
-                spacing="2", align="start", width="100%", margin_top="1rem",
+                          color_scheme="brown", variant="soft", width="100%",
+                          cursor="pointer"),
+                spacing="2", align="start", width="100%", margin_top="0.7rem",
             ),
-            rx.box(
-                rx.text("Utenti demo (stub, finché il CDP non espone /api/v1/auth):",
-                        size="1", weight="bold", color_scheme="gray"),
-                rx.text("turista → mario.rossi@email.it", size="1", color_scheme="gray"),
-                rx.text("operatore → sextantio@demo.it", size="1", color_scheme="gray"),
-                rx.text("admin → admin@demo.it", size="1", color_scheme="gray"),
-                rx.text("password per tutti: demo", size="1", color_scheme="gray",
-                        weight="bold"),
-                style={"background": rx.color_mode_cond(light="#efe7db", dark="#241f18"),
-                       "borderRadius": "11px", "padding": "12px 14px", "marginTop": "1rem"},
-            ),
+            rx.text("Demo (stub): la password per tutti è ‘demo’. L'identità è del CDP.",
+                    size="1", color_scheme="gray", margin_top="0.9rem"),
             style={"background": SURFACE, "border": f"1px solid {BORDER}",
                    "borderRadius": "16px", "padding": "26px", "maxWidth": "430px",
                    "width": "100%"},
